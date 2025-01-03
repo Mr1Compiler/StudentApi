@@ -71,6 +71,43 @@ namespace StudentApi.Controllers
 			}
 			return Ok(student);
 		}
+
+		[HttpPost(Name ="AddStudent")]
+		[ProducesResponseType(StatusCodes.Status201Created)]
+		[ProducesResponseType(StatusCodes.Status400BadRequest)]
+		public ActionResult<Student> AddStudent(Student newStudent)
+		{
+			if(newStudent == null || string.IsNullOrEmpty(newStudent.Name) || newStudent.Age < 0 || newStudent.Grade < 0)
+			{
+				return BadRequest("Invalid student data");
+			}
+			
+			newStudent.Id = StudentDataSimulation.StudentsList.Max(s => s.Id) + 1;
+			StudentDataSimulation.StudentsList.Add(newStudent);
+
+			return CreatedAtRoute("GetStudentById", new { id = newStudent.Id }, newStudent);
+		}
+
+		[HttpDelete("{id}" ,Name ="DeleteStudent")]
+		[ProducesResponseType(StatusCodes.Status200OK)]
+		[ProducesResponseType(StatusCodes.Status400BadRequest)]
+		[ProducesResponseType(StatusCodes.Status404NotFound)]
+		public ActionResult DeleteStudent(int id)
+		{
+			if (id < 1)
+			{
+				return BadRequest("Id must be greater than 0.");
+			}
+
+			var student = StudentDataSimulation.StudentsList.FirstOrDefault(s => s.Id == id);
+			if (student == null)
+			{
+				return NotFound($"Student with id {id} not found.");
+			}
+
+			StudentDataSimulation.StudentsList.Remove(student);
+			return Ok($"The student with ID {id} has been deleted.");		
+		}
 	}
 }
 
