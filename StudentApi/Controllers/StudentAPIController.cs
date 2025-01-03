@@ -1,94 +1,126 @@
-﻿using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
-using StudentApi.DataSimulation;
-using StudentApi.Model;
+﻿using Microsoft.AspNetCore.Mvc;
+using System.Collections.Generic;
+using StudentAPIBusinessLayer;
+using StudentDataAccessLayer;
 
 namespace StudentApi.Controllers
 {
-	//[Route("api/[controller]")]
+	[ApiController] 
 	[Route("api/Students")]
-	[ApiController]
-	public class StudentAPIController : ControllerBase
+	public class StudentsController : ControllerBase 
 	{
-		[HttpGet("All", Name = "GetAllStudents")]
+
+
+		[HttpGet("All", Name = "GetAllStudents")] 
 		[ProducesResponseType(StatusCodes.Status200OK)]
 		[ProducesResponseType(StatusCodes.Status404NotFound)]
-		public ActionResult<IEnumerable<Student>> GetAllStudents()
+
+		public ActionResult<IEnumerable<StudentDTO>> GetAllStudents() 
 		{
-			if(StudentDataSimulation.StudentsList.Count == 0)
+			List<StudentDTO> StudentsList = StudentAPIBusinessLayer.Student.GetAllStudents();
+			if (StudentsList.Count == 0)
 			{
-				return NotFound("No student found.");
+				return NotFound("No Students Found!");
 			}
-			return Ok(StudentDataSimulation.StudentsList);
+			return Ok(StudentsList);
 		}
 
-		[HttpGet("Passed", Name = "GetPassedStudent")]
+		[HttpGet("Passed", Name = "GetPassedStudents")]
 		[ProducesResponseType(StatusCodes.Status200OK)]
 		[ProducesResponseType(StatusCodes.Status404NotFound)]
-		public ActionResult<IEnumerable<Student>> GetPassedStudent()
-		{
-			var passedStudnts = StudentDataSimulation.StudentsList.Where(s => s.Grade >= 50).ToList();
+		public ActionResult<IEnumerable<StudentDTO>> GetPassedStudents()
 
-			if(passedStudnts.Count == 0)
+		{
+			List<StudentDTO> PassedStudentsList = StudentAPIBusinessLayer.Student.GetPassedStudents();
+			if (PassedStudentsList.Count == 0)
 			{
-				return NotFound("No student passed.");
+				return NotFound("No Students Found!");
 			}
 
-			return Ok(passedStudnts);
+			return Ok(PassedStudentsList); 
 		}
 
-		[HttpGet("AvarageGrade", Name = "GetAvarageGrade")]
+		[HttpGet("AverageGrade", Name = "GetAverageGrade")]
 		[ProducesResponseType(StatusCodes.Status200OK)]
 		[ProducesResponseType(StatusCodes.Status404NotFound)]
-		public ActionResult<double> GetAvarageGrade()
+		public ActionResult<double> GetAverageGrade()
 		{
-
-			//StudentDataSimulation.StudentsList.Clear(); //Testing the NotFound() method
-
-			if (StudentDataSimulation.StudentsList.Count == 0)
-			{
-				return NotFound("No student found.");
-			}
-			var avarageGrade = StudentDataSimulation.StudentsList.Average(s => s.Grade);
-			return Ok(avarageGrade);
+			double averageGrade = StudentAPIBusinessLayer.Student.GetAverageGrade();
+			return Ok(averageGrade);
 		}
 
-		[HttpGet("{id}", Name ="GetStudentById")]
+
+		[HttpGet("{id}", Name = "GetStudentById")]
 		[ProducesResponseType(StatusCodes.Status200OK)]
 		[ProducesResponseType(StatusCodes.Status400BadRequest)]
 		[ProducesResponseType(StatusCodes.Status404NotFound)]
-		public ActionResult<Student> GetStudentById(int id)
+		public ActionResult<StudentDTO> GetStudentById(int id)
 		{
-			if(id <1)
-			{
-				return BadRequest("Id must be greater than 0.");
-			}
 
-			var student = StudentDataSimulation.StudentsList.FirstOrDefault(s => s.Id == id);
+			if (id < 1)
+			{
+				return BadRequest($"Not accepted ID {id}");
+			}
+			StudentAPIBusinessLayer.Student student = StudentAPIBusinessLayer.Student.Find(id);
+
 			if (student == null)
 			{
-				return NotFound($"Student with id {id} not found.");
+				return NotFound($"Student with ID {id} not found.");
 			}
-			return Ok(student);
+			StudentDTO SDTO = student.SDTO;
+
+			return Ok(SDTO);
 		}
 
-		[HttpPost(Name ="AddStudent")]
+		[HttpPost(Name = "AddStudent")]
 		[ProducesResponseType(StatusCodes.Status201Created)]
 		[ProducesResponseType(StatusCodes.Status400BadRequest)]
-		public ActionResult<Student> AddStudent(Student newStudent)
+		public ActionResult<StudentDTO> AddStudent(StudentDTO newStudentDTO)
 		{
-			if(newStudent == null || string.IsNullOrEmpty(newStudent.Name) || newStudent.Age < 0 || newStudent.Grade < 0)
+			if (newStudentDTO == null || string.IsNullOrEmpty(newStudentDTO.Name) || newStudentDTO.Age < 0 || newStudentDTO.Grade < 0)
 			{
-				return BadRequest("Invalid student data");
+				return BadRequest("Invalid student data.");
 			}
-			
-			newStudent.Id = StudentDataSimulation.StudentsList.Max(s => s.Id) + 1;
-			StudentDataSimulation.StudentsList.Add(newStudent);
 
-			return CreatedAtRoute("GetStudentById", new { id = newStudent.Id }, newStudent);
+			StudentAPIBusinessLayer.Student student = new StudentAPIBusinessLayer.Student(new StudentDTO(newStudentDTO.Id, newStudentDTO.Name, newStudentDTO.Age, newStudentDTO.Grade));
+			student.Save();
+
+			newStudentDTO.Id = student.ID;
+
+			return CreatedAtRoute("GetStudentById", new { id = newStudentDTO.Id }, newStudentDTO);
+
 		}
 
-		[HttpDelete("{id}" ,Name ="DeleteStudent")]
+
+		[HttpPut("{id}", Name = "UpdateStudent")]
+		[ProducesResponseType(StatusCodes.Status200OK)]
+		[ProducesResponseType(StatusCodes.Status400BadRequest)]
+		[ProducesResponseType(StatusCodes.Status404NotFound)]
+		public ActionResult<StudentDTO> UpdateStudent(int id, StudentDTO updatedStudent)
+		{
+			if (id < 1 || updatedStudent == null || string.IsNullOrEmpty(updatedStudent.Name) || updatedStudent.Age < 0 || updatedStudent.Grade < 0)
+			{
+				return BadRequest("Invalid student data.");
+			}
+
+			StudentAPIBusinessLayer.Student student = StudentAPIBusinessLayer.Student.Find(id);
+
+			if (student == null)
+			{
+				return NotFound($"Student with ID {id} not found.");
+			}
+
+			student.Name = updatedStudent.Name;
+			student.Age = updatedStudent.Age;
+			student.Grade = updatedStudent.Grade;
+			student.Save();
+
+			return Ok(student.SDTO);
+
+		}
+
+
+		[HttpDelete("{id}", Name = "DeleteStudent")]
 		[ProducesResponseType(StatusCodes.Status200OK)]
 		[ProducesResponseType(StatusCodes.Status400BadRequest)]
 		[ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -96,41 +128,13 @@ namespace StudentApi.Controllers
 		{
 			if (id < 1)
 			{
-				return BadRequest("Id must be greater than 0.");
+				return BadRequest($"Not accepted ID {id}");
 			}
 
-			var student = StudentDataSimulation.StudentsList.FirstOrDefault(s => s.Id == id);
-			if (student == null)
-			{
-				return NotFound($"Student with id {id} not found.");
-			}
-
-			StudentDataSimulation.StudentsList.Remove(student);
-			return Ok($"The student with ID {id} has been deleted.");		
-		}
-
-		[HttpPut("{id}", Name = "UpdateStudent")]
-		[ProducesResponseType(StatusCodes.Status200OK)]
-		[ProducesResponseType(StatusCodes.Status400BadRequest)]
-		[ProducesResponseType(StatusCodes.Status404NotFound)]
-		public ActionResult<Student> UpdateStudent(Student newStudent)
-		{
-			if(newStudent == null || string.IsNullOrEmpty(newStudent.Name) || newStudent.Age < 0 || newStudent.Grade < 0)
-			{
-				return BadRequest("Invalid student data");
-			}
-
-			var student = StudentDataSimulation.StudentsList.FirstOrDefault(s => s.Id == newStudent.Id);
-			if (student == null)
-			{
-				return NotFound($"Student with id {newStudent.Id} not found.");
-			}
-
-			student.Name = newStudent.Name;
-			student.Age = newStudent.Age;
-			student.Grade = newStudent.Grade;
-
-			return Ok(student);
+			if (StudentAPIBusinessLayer.Student.DeleteStudent(id))
+				return Ok($"Student with ID {id} has been deleted.");
+			else
+				return NotFound($"Student with ID {id} not found. no rows deleted!");
 		}
 	}
 }
